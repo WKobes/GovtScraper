@@ -1,0 +1,11 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# IDE
+.idea/
+
+# Folders
+domains/
+scripts/
