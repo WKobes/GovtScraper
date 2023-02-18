@@ -7,35 +7,17 @@ from .. import helpers
 
 cwd = os.getcwd()
 
-# SETTING_TYPE = 'Adviescollege'
-# SETTING_TYPE = 'Agentschap'
-# SETTING_TYPE = 'Caribisch%2520openbaar%2520lichaam'
-# SETTING_TYPE = 'Gemeente'
-# SETTING_TYPE = 'Grensoverschrijdend%2520regionaal%2520samenwerkingsorgaan'
-# SETTING_TYPE = 'Hoog%2520College%2520van%2520Staat'
-# SETTING_TYPE = 'Interdepartementale%2520commissie'
-# SETTING_TYPE = 'Kabinet%2520van%2520de%2520Koning'
-# SETTING_TYPE = 'Koepelorganisatie'
-# SETTING_TYPE = 'Ministerie'
-# SETTING_TYPE = 'Openbaar%2520lichaam%2520voor%2520beroep%2520en%2520bedrijf'
-# SETTING_TYPE = 'Organisatie%2520met%2520overheidsbemoeienis'
-# SETTING_TYPE = 'Organisatieonderdeel'
-# SETTING_TYPE = 'Politie%2520en%2520brandweer'
-# SETTING_TYPE = 'Provincie'
-# SETTING_TYPE = 'Rechtspraak'
-# SETTING_TYPE = 'Regionaal%2520samenwerkingsorgaan'
-# SETTING_TYPE = 'Waterschap'
-# SETTING_TYPE = 'Zelfstandig%2520bestuursorgaan'
-SETTING_TYPE = ''  # All
+
+SETTING_TYPE = 'bundes'  # All
 
 
-class PublicbodiesSpider(scrapy.Spider):
+class BundesBehordenSpider(scrapy.Spider):
     """
-    Quick scraper to download URLs from the organisaties.overheid.nl
+    Quick scraper to download URLs from https://www.service.bund.de
     """
-    name = 'publicbodies'
-    allowed_domains = ['almanak.overheid.nl', 'overheid.nl', 'organisaties.overheid.nl']
-    start_urls = [f'https://www.overheid.nl/zoekresultaat/contactgegevens-overheden/1/200/lijst/type={SETTING_TYPE}']
+    name = 'bundesbehorden'
+    allowed_domains = ['www.service.bund.de']
+    start_urls = [f'https://www.service.bund.de/Content/DE/Behoerden/Suche/Formular.html?resultsPerPage=100']
     handle_httpstatus_list = [400, 403, 404, 500]
 
     def write_to(self, file, entry, check):
@@ -62,10 +44,10 @@ class PublicbodiesSpider(scrapy.Spider):
 
         elif isinstance(response, TextResponse):
 
-            for link in response.xpath('//div[@class="result--list result--list--wide"]//a/@href'):
-                yield scrapy.Request(link.get(), callback=self.parse_almanak_page)
+            for link in response.xpath("//ul[@class='result-list']/li/a/@href"):
+                yield scrapy.Request(response.urljoin(link.get()), callback=self.parse_almanak_page)
 
-            for x in response.xpath("(//span[text()='Volgende']/parent::*/@href)[1]"):
+            for x in response.xpath("(//li[@class='next']/a/@href)[1]"):
                 yield scrapy.Request(response.urljoin(x.get()), callback=self.parse)
 
     def parse_almanak_page(self, response):
@@ -74,7 +56,7 @@ class PublicbodiesSpider(scrapy.Spider):
         :param response:
         :return:
         """
-        website = response.xpath("//td[@data-before='Internet']/a/@href")
+        website = response.xpath("(//a[@class='external']/@href)[1]")
         # Save our new findings
 
         website = website.get()

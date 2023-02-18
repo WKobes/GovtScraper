@@ -15,9 +15,19 @@ class DomainexplorerSpider(scrapy.Spider):
     """
     name = 'domainexplorer'
     # TODO: generic start, include subdomains
-    allowed_domains = ['veiliginternetten.nl']
-    start_urls = ['https://veiliginternetten.nl/']
+    allowed_domains = ['']  # Domain(s) allowed in this crawl
+    start_urls = ['']  # Starting URLs (usually homepage of every website)
     handle_httpstatus_list = [400, 403, 404, 500]
+
+    @staticmethod
+    def write_to(file, entry, check):
+        with open(f'{cwd}/govspider/domains/{file}', 'r+') as f:
+            for line in f:
+                if line.startswith(check):
+                    break
+            else:
+                f.write(entry)
+        return
 
     def parse(self, response):
         """
@@ -26,12 +36,12 @@ class DomainexplorerSpider(scrapy.Spider):
         :return:
         """
         if response.status != 200:
-            with open(f'{cwd}/govspider/domains/errors.txt', 'r+') as f:
-                for line in f:
-                    if line.startswith(f'{response.url} '):
-                        break
-                else:
-                    f.write(f'{response.url} - (Status {response.status}) - ({response.request.url})\n')
+            if response.status != 200:
+                self.write_to(
+                    'errors.txt',
+                    f'{response.url} - (Status {response.status}) - ({response.request.url})\n',
+                    f'{response.url} '
+                )
 
         elif isinstance(response, TextResponse):
             curr_url, _ = helpers.strip_abs_url(response.request.url)
@@ -53,19 +63,6 @@ class DomainexplorerSpider(scrapy.Spider):
                     # Found a relative URL
                     rel_urls[tmp] = response.request.url
 
-            # Save our new findings
-            # file_exists = os.path.isfile(f'{cwd}/govspider/domains/websites/{curr_url}.txt')
-            # if not file_exists:
-            #     open(f'{cwd}/govspider/domains/websites/{curr_url}.txt', 'a').close()
-            # with open(f'{cwd}/govspider/domains/websites/{curr_url}.txt', 'r+') as f:
-            #     for i in rel_urls:
-            #         f.seek(0)
-            #         for line in f:
-            #             if line.startswith(f'{i} '):
-            #                 break
-            #         else:
-            #             f.write(f'{i} ({rel_urls[i]})\n')
-
             with open(f'{cwd}/govspider/domains/new.txt', 'r+') as f:
                 with open(f'{cwd}/govspider/domains/gov.txt', 'r') as gov_f:
                     for i in abs_domains:
@@ -73,6 +70,14 @@ class DomainexplorerSpider(scrapy.Spider):
                         f.seek(0)
                         for line in gov_f:
                             if line.startswith(f'{i}'):
+                                break
+                            elif '.' + line.rstrip() in i:
+                                with open(f'{cwd}/govspider/domains/verified.txt', 'r+') as f2:
+                                    for sub in f2:
+                                        if sub.startswith(f'{i}'):
+                                            break
+                                    else:
+                                        f2.write(f"{i}\n")
                                 break
                         else:
                             for line in f:
@@ -84,5 +89,5 @@ class DomainexplorerSpider(scrapy.Spider):
             # For all relative URLs found, we start a new request
             # Duplicates are filtered by Scrapy
             for url in rel_urls:
-                if not url.endswith('.pdf'):
+                if not url.endswith('.pdf') and not any(string in url for string in ['%5D=created', '%5D=bibcite_year', '%5D=sdv_published', '%5D=search_subjects']):
                     yield scrapy.Request(response.urljoin(url), callback=self.parse)
